@@ -137,7 +137,6 @@ function command_doctor {
         if [ $code = "200" ]; then
             verbose 1 "Connection Ok (200)"
             verbose 1 " "
-            verbose 1 "EVERYTHING IS WORKING !"
             exit 0
         else
             verbose 1 "Connection error (http $code)"
