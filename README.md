@@ -18,6 +18,14 @@ Nginx management though pulsion scripts
 ##Restart
     pulsion restart
 
-##Update the nginx config on the arnaudhe/config/nginx base
+##Update the nginx config
     pulsion update_config
 
+##Show last access logs
+    pulsion logs_access
+
+##Show last error logs
+    pulsion logs_error
+
+##Show last access logs on virtual host default
+    pulsion logs_default_access

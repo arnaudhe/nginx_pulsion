@@ -145,3 +145,45 @@ function command_doctor {
         fi
     }
 }
+
+function command_logs_access {
+
+    function help {
+
+        echo -e "Nginx logs access"
+
+    }
+
+    function process {
+
+        tail -250f /usr/local/etc/nginx/logs/access.log
+    }
+}
+
+function command_logs_error {
+
+    function help {
+
+        echo -e "Nginx logs errors"
+
+    }
+
+    function process {
+
+        tail -250f /usr/local/etc/nginx/logs/error.log
+    }
+}
+
+function command_logs_default_access {
+
+    function help {
+
+        echo -e "Nginx logs access on virtual host default"
+
+    }
+
+    function process {
+
+        tail -250f /usr/local/etc/nginx/logs/default.access.log
+    }
+}
