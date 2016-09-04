@@ -1,0 +1,147 @@
+#!/bin/bash
+
+function command_install {
+
+    function help {
+
+        echo -e "Install nginx"
+
+    }
+
+    function process {
+
+        set -e
+
+        brew update
+        brew upgrade
+        brew tap homebrew/dupes
+        brew tap josegonzalez/homebrew-php
+        
+        brew install --without-apache --with-fpm --with-mysql php56
+        brew install nginx
+
+        mkdir -p /usr/local/etc/nginx/logs
+        mkdir -p /usr/local/etc/nginx/sites-available
+        mkdir -p /usr/local/etc/nginx/sites-enabled
+        mkdir -p /usr/local/etc/nginx/conf.d
+        mkdir -p /usr/local/etc/nginx/ssl
+
+        pulsion update_config
+
+        cp /usr/local/etc/php/5.6/php.ini /usr/local/etc/php/5.6/php.ini.default
+        sed 's%;date.timezone =.*%date.timezone = "Europe/Paris"%' /usr/local/etc/php/5.6/php.ini.default > /usr/local/etc/php/5.6/php.ini
+    }
+}
+
+
+function command_update_config {
+
+    function help {
+
+        echo -e "Update nginx"
+
+    }
+
+    function process {
+
+        set -e
+
+        rm /usr/local/etc/nginx/nginx.conf
+
+        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/nginx.conf -o /usr/local/etc/nginx/nginx.conf
+        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/conf.d/php-fpm -o /usr/local/etc/nginx/conf.d/php-fpm
+        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/sites-available/default -o /usr/local/etc/nginx/sites-available/default
+        #curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/sites-available/default-ssl -o /usr/local/etc/nginx/sites-available/default-ssl
+        #curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/sites-available/default-silex -o /usr/local/etc/nginx/sites-available/default-silex
+
+        ln -sfv /usr/local/etc/nginx/sites-available/default /usr/local/etc/nginx/sites-enabled/default
+        #ln -sfv /usr/local/etc/nginx/sites-available/default-ssl /usr/local/etc/nginx/sites-enabled/default-ssl
+        #ln -sfv /usr/local/etc/nginx/sites-available/default-silex /usr/local/etc/nginx/sites-enabled/default-silex
+
+        #openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj '/C=US/ST=State/L=Town/O=Office/CN=localhost' -keyout /usr/local/etc/nginx/ssl/localhost.key -out /usr/local/etc/nginx/ssl/localhost.crt   
+    }
+}
+
+function command_start {
+
+    function help {
+
+        echo -e "Start PHP-FCM and NGINX"
+
+    }
+
+    function process {
+
+        verbose 1 "Starting php and php-fcm..."
+        launchctl load -w /usr/local/opt/php56/homebrew.mxcl.php56.plist
+        verbose 1 "Starting nginx"
+        launchctl load /usr/local/opt/nginx/homebrew.mxcl.nginx.plist
+
+    }
+}
+
+function command_stop {
+
+    function help {
+
+        echo -e "Stop PHP-FCM and NGINX"
+
+    }
+
+    function process {
+        
+        verbose 1 "Stopping php and php-fcm..."
+        launchctl unload -w /usr/local/opt/php56/homebrew.mxcl.php56.plist
+        verbose 1 "Stopping nginx"
+        launchctl unload /usr/local/opt/nginx/homebrew.mxcl.nginx.plist
+
+    }
+}
+
+function command_restart {
+
+    function help {
+
+        echo -e "Restart PHP-FCM and NGINX"
+
+    }
+
+    function process {
+
+        pulsion stop
+        pulsion start
+
+    }
+}
+
+function command_doctor {
+
+    function help {
+
+        echo -e "Check install sanity"
+
+    }
+
+    function process {
+
+        pulsion start
+
+        sleep 2  #let services time to init
+
+        set -e   #stop if error
+
+        verbose 1 "Test of php-fcm"
+        lsof -Pni4 | grep LISTEN | grep php
+        verbose 1 "Test of nginx"
+        code=`curl -s -o /dev/null -w "%{http_code}" http://localhost:8080`
+        if [ $code = "200" ]; then
+            verbose 1 "Connection Ok (200)"
+            verbose 1 " "
+            verbose 1 "EVERYTHING IS WORKING !"
+            exit 0
+        else
+            verbose 1 "Connection error (http $code)"
+            exit 1
+        fi
+    }
+}
