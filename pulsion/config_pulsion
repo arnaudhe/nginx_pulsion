@@ -8,28 +8,84 @@ function command_install {
 
     }
 
+    function php_patch_ini {
+
+        php_ini_path=`php -i | grep 'Loaded Configuration File' | awk '{print $5}'`
+
+        if [ $php_ini_path = "(none)" ] 
+        then
+            echo "No php ini loaded, making /etc/php.ini"
+            cp /etc/php.ini.default /etc/php.ini
+            php_ini_path='/etc/php.ini'
+        fi
+
+        php_ini_backup="$php_ini_path.backup"
+
+        cp $php_ini_path $php_ini_backup
+        sed 's%;date.timezone =.*%date.timezone = "Europe/Paris"%' $php_ini_backup > $php_ini_path
+
+        php_fpm_path=`php-fpm -i | grep 'fpm.config' | awk '{print $3}'`
+        if [ $php_fpm_path = "no" ]
+        then
+            echo "No php-fpm.conf loaded, making /etc/php-fpm.conf"
+            cp /etc/php-fpm.conf.default /etc/php-fpm.conf
+            php_fpm_path='/etc/php-fpm.conf'
+        fi
+
+        php_fpm_backup="$php_fpm_path.backup"
+
+        cp $php_fpm_path $php_fpm_backup
+        sed 's%;error_log.*%error_log = /usr/local/var/log/php-fpm/php-fpm.log%' $php_fpm_backup > $php_fpm_path
+    }
+
+    function get_nginx {
+
+        curl ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.38.tar.gz > pcre.tar.gz
+        tar -xf pcre.tar.gz
+        cd pcre-8.38
+        ./configure --prefix=/usr/local
+        make
+        make install
+        cd ..
+        rm -r pcre-8.38
+        rm pcre.tar.gz
+
+        curl http://nginx.org/download/nginx-1.11.3.tar.gz > nginx.tar.gz
+        tar -xf nginx.tar.gz
+        cd nginx-1.11.3
+        ./configure --prefix=/usr/local/nginx
+        make
+        make install
+        cd ..
+        rm -r nginx-1.11.3
+        rm nginx.tar.gz
+    }
+
     function process {
 
         set -e
-
-        brew update
-        brew upgrade
-        brew tap homebrew/dupes
-        brew tap josegonzalez/homebrew-php
         
-        brew install --without-apache --with-fpm --with-mysql php56
-        brew install nginx
-
-        mkdir -p /usr/local/etc/nginx/logs
-        mkdir -p /usr/local/etc/nginx/sites-available
-        mkdir -p /usr/local/etc/nginx/sites-enabled
-        mkdir -p /usr/local/etc/nginx/conf.d
-        mkdir -p /usr/local/etc/nginx/ssl
+        if is_command_exist php-fpm
+        then
+            verbose 1 "php-fmp installed"
+        else
+            verbose 1 "Fatal : php-fpm not installed"
+            exit 1
+        fi
+        
+        if is_command_exist /usr/local/nginx/sbin/nginx; then
+            verbose 1 "nginx already installed. Skip"
+        else
+            get_nginx
+        fi
 
         pulsion update_config
 
-        cp /usr/local/etc/php/5.6/php.ini /usr/local/etc/php/5.6/php.ini.default
-        sed 's%;date.timezone =.*%date.timezone = "Europe/Paris"%' /usr/local/etc/php/5.6/php.ini.default > /usr/local/etc/php/5.6/php.ini
+        mkdir -p /usr/local/var/log/php-fpm
+
+        verbose 1 "patching php.ini timezone"
+
+        exesudo php_patch_ini
     }
 }
 
@@ -46,19 +102,22 @@ function command_update_config {
 
         set -e
 
-        rm /usr/local/etc/nginx/nginx.conf
+        echo "Gettings last nginx config"
 
-        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/nginx.conf -o /usr/local/etc/nginx/nginx.conf
-        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/conf.d/php-fpm -o /usr/local/etc/nginx/conf.d/php-fpm
-        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/sites-available/default -o /usr/local/etc/nginx/sites-available/default
-        #curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/sites-available/default-ssl -o /usr/local/etc/nginx/sites-available/default-ssl
-        #curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/sites-available/default-silex -o /usr/local/etc/nginx/sites-available/default-silex
+        rm /usr/local/nginx/conf/nginx.conf
 
-        ln -sfv /usr/local/etc/nginx/sites-available/default /usr/local/etc/nginx/sites-enabled/default
-        #ln -sfv /usr/local/etc/nginx/sites-available/default-ssl /usr/local/etc/nginx/sites-enabled/default-ssl
-        #ln -sfv /usr/local/etc/nginx/sites-available/default-silex /usr/local/etc/nginx/sites-enabled/default-silex
+        mkdir -p /usr/local/nginx/conf/logs
+        mkdir -p /usr/local/nginx/conf/sites-available
+        mkdir -p /usr/local/nginx/conf/sites-enabled
+        mkdir -p /usr/local/nginx/conf/conf.d
+        mkdir -p /usr/local/nginx/conf/ssl
 
-        #openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj '/C=US/ST=State/L=Town/O=Office/CN=localhost' -keyout /usr/local/etc/nginx/ssl/localhost.key -out /usr/local/etc/nginx/ssl/localhost.crt   
+        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/nginx.conf -o /usr/local/nginx/conf/nginx.conf
+        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/conf.d/php-fpm -o /usr/local/nginx/conf/conf.d/php-fpm
+        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/sites-available/default -o /usr/local/nginx/conf/sites-available/default
+        
+        ln -sfv /usr/local/nginx/conf/sites-available/default /usr/local/nginx/conf/sites-enabled/default
+
     }
 }
 
@@ -66,17 +125,16 @@ function command_start {
 
     function help {
 
-        echo -e "Start PHP-FCM and NGINX"
+        echo -e "Start php-fcm and nginx"
 
     }
 
     function process {
 
-        verbose 1 "Starting php and php-fcm..."
-        launchctl load -w /usr/local/opt/php56/homebrew.mxcl.php56.plist
+        verbose 1 "Starting php-fcm..."
+        php-fpm
         verbose 1 "Starting nginx"
-        launchctl load /usr/local/opt/nginx/homebrew.mxcl.nginx.plist
-
+        /usr/local/nginx/sbin/nginx
     }
 }
 
@@ -84,16 +142,19 @@ function command_stop {
 
     function help {
 
-        echo -e "Stop PHP-FCM and NGINX"
+        echo -e "Stop php-fcm and nginx"
 
     }
 
     function process {
         
-        verbose 1 "Stopping php and php-fcm..."
-        launchctl unload -w /usr/local/opt/php56/homebrew.mxcl.php56.plist
+        verbose 1 "Stopping php-fcm..."
+        for pid in `lsof -Pni4 | grep php-fpm | awk {'print $2'}`
+        do 
+            kill -9 $pid
+        done
         verbose 1 "Stopping nginx"
-        launchctl unload /usr/local/opt/nginx/homebrew.mxcl.nginx.plist
+        /usr/local/nginx/sbin/nginx -s stop
 
     }
 }
@@ -124,14 +185,33 @@ function command_doctor {
 
     function process {
 
+        set -e   #stop if error
+
+        if is_command_exist /usr/local/nginx/sbin/nginx
+        then
+            verbose 1 "nginx conf auto-test"
+            /usr/local/nginx/sbin/nginx -T > /dev/null
+        else
+            verbose 1 "nginx not installed"
+            exit 1
+        fi
+
+        if is_command_exist php-fpm
+        then
+            verbose 1 "php-fpm conf auto-test"
+            php-fpm --test
+        else
+            verbose 1 "php-fpm not installed"
+            exit 1
+        fi
+
         pulsion start
 
         sleep 2  #let services time to init
 
-        set -e   #stop if error
-
         verbose 1 "Test of php-fcm"
         lsof -Pni4 | grep LISTEN | grep php
+
         verbose 1 "Test of nginx"
         code=`curl -s -o /dev/null -w "%{http_code}" http://localhost:8080`
         if [ $code = "200" ]; then
@@ -155,7 +235,7 @@ function command_logs_access {
 
     function process {
 
-        tail -250f /usr/local/etc/nginx/logs/access.log
+        tail -250f /usr/local/nginx/logs/access.log
     }
 }
 
@@ -169,7 +249,7 @@ function command_logs_error {
 
     function process {
 
-        tail -250f /usr/local/etc/nginx/logs/error.log
+        tail -250f /usr/local/nginx/logs/error.log
     }
 }
 
@@ -183,6 +263,6 @@ function command_logs_default_access {
 
     function process {
 
-        tail -250f /usr/local/etc/nginx/logs/default.access.log
+        tail -250f /usr/local/nginx/logs/default.access.log
     }
 }

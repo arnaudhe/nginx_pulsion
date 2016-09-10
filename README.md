@@ -2,8 +2,6 @@
 Nginx management though pulsion scripts
 
 ##Install
-
-####Required : Homebrew
     pulsion install
 
 ##Test the setup
