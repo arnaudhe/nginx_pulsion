@@ -260,3 +260,17 @@ function command_logs_error {
         tail -250f /usr/local/nginx/logs/error.log
     }
 }
+
+function command_php_logs_error {
+
+    function help {
+
+        echo -e "php-fpm logs errors"
+
+    }
+
+    function process {
+
+        tail -250f /usr/local/var/log/php-fpm/php-fpm.log
+    }
+}
