@@ -261,6 +261,72 @@ function command_logs_error {
     }
 }
 
+function command_vhosts_list {
+
+    function help {
+
+        echo -e "nginx vhosts listing"
+
+    }
+
+    function process {
+
+        for i in $(ls /usr/local/nginx/conf/sites-available)
+        do
+            host=$(cat /usr/local/nginx/conf/sites-available/$i | grep server_name | head -1 | awk {'print $2;'})
+            port=$(cat /usr/local/nginx/conf/sites-available/$i | grep listen | head -1 | awk {'print $2;'})
+            root=$(cat /usr/local/nginx/conf/sites-available/$i | grep root | head -1 | awk {'print $2;'})
+            echo -e "$i\t${host//;}:${port//;}\t${root//;}"
+        done
+    }
+}
+
+function command_vhosts_add {
+
+    function help {
+
+        echo -e "nginx vhosts add. contains wizard."
+
+    }
+
+    function add_etc_host {
+
+        last_vhost=$(ls -t /usr/local/nginx/conf/sites-available | head -1)
+        host=$(cat /usr/local/nginx/conf/sites-available/$last_vhost | grep server_name | head -1 | awk {'print $2;'})
+        echo "127.0.0.1    ${host//;}" >> /etc/hosts
+
+    }
+
+    function process {
+
+        echo -e "Please choose a name"
+        read name
+        list=$(ls /usr/local/nginx/conf/sites-available)
+        echo -e "Please choose a template in $list (might be 'default')"
+        read template
+        echo -e "Please choose a server hostname (might be 'localhost')"
+        read host
+        echo -e "Please choose a server port (might be '808x')"
+        read port
+        echo -e "Please choose a documents root (might be '/Users/Arnaud/Sites')"
+        read docroot
+        echo -e "Do you want to append server host in /etc/hosts file ? (y/n)"
+        read appendhosts
+
+        set -e
+        set -o pipefail
+
+        cat "/usr/local/nginx/conf/sites-available/$template" | sed "s%listen.*%listen       $port;%" | sed "s%server_name.*%server_name  $host;%" | sed "s%root     .*%root         $docroot;%" > "/usr/local/nginx/conf/sites-available/$name"
+
+        ln -sfv "/usr/local/nginx/conf/sites-available/$name" "/usr/local/nginx/conf/sites-enabled/$name"
+
+        if [ $appendhosts = 'y' ]
+        then
+            exesudo add_etc_host
+        fi
+    }
+}
+
 function command_php_logs_error {
 
     function help {
