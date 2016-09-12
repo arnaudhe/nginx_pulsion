@@ -115,8 +115,10 @@ function command_update_config {
         curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/nginx.conf -o /usr/local/nginx/conf/nginx.conf
         curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/conf.d/php-fpm -o /usr/local/nginx/conf/conf.d/php-fpm
         curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/sites-available/default -o /usr/local/nginx/conf/sites-available/default
-        
+        curl -L https://raw.githubusercontent.com/arnaudhe/config/master/nginx/sites-available/silex -o /usr/local/nginx/conf/sites-available/silex
+
         ln -sfv /usr/local/nginx/conf/sites-available/default /usr/local/nginx/conf/sites-enabled/default
+        ln -sfv /usr/local/nginx/conf/sites-available/silex /usr/local/nginx/conf/sites-enabled/silex
 
     }
 }
@@ -230,12 +232,18 @@ function command_logs_access {
     function help {
 
         echo -e "Nginx logs access"
+        echo -e "usage: pulsion logs_access [--vhost <hostname>]"
 
     }
 
     function process {
 
-        tail -250f /usr/local/nginx/logs/access.log
+        if has_param --vhost "$@"; then
+            vhost="$(get_param_value --vhost "$@")"
+            tail -250f "/usr/local/nginx/logs/$vhost.access.log"
+        else
+            tail -250f /usr/local/nginx/logs/access.log
+        fi
     }
 }
 
@@ -250,19 +258,5 @@ function command_logs_error {
     function process {
 
         tail -250f /usr/local/nginx/logs/error.log
-    }
-}
-
-function command_logs_default_access {
-
-    function help {
-
-        echo -e "Nginx logs access on virtual host default"
-
-    }
-
-    function process {
-
-        tail -250f /usr/local/nginx/logs/default.access.log
     }
 }
