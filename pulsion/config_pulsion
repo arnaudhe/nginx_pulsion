@@ -273,10 +273,16 @@ function command_vhosts_list {
 
         for i in $(ls /usr/local/nginx/conf/sites-available)
         do
+            if [ -e "/usr/local/nginx/conf/sites-enabled/$i" ]
+            then
+                status='(*)'
+            else
+                status='( )'
+            fi
             host=$(cat /usr/local/nginx/conf/sites-available/$i | grep server_name | head -1 | awk {'print $2;'})
             port=$(cat /usr/local/nginx/conf/sites-available/$i | grep listen | head -1 | awk {'print $2;'})
             root=$(cat /usr/local/nginx/conf/sites-available/$i | grep root | head -1 | awk {'print $2;'})
-            echo -e "$i\t${host//;}:${port//;}\t${root//;}"
+            echo -e "$status $i\t${host//;}:${port//;}\t${root//;}"
         done
     }
 }
@@ -316,13 +322,110 @@ function command_vhosts_add {
         set -e
         set -o pipefail
 
-        cat "/usr/local/nginx/conf/sites-available/$template" | sed "s%listen.*%listen       $port;%" | sed "s%server_name.*%server_name  $host;%" | sed "s%root     .*%root         $docroot;%" > "/usr/local/nginx/conf/sites-available/$name"
+        cat "/usr/local/nginx/conf/sites-available/$template" | sed "s%listen.*%listen       $port;%" | sed "s%server_name.*%server_name  $host;%" | sed "s%root     .*%root         $docroot;%" | sed "s%access_log.*%access_log  /usr/local/nginx/logs/$name.access.log  main;%" > "/usr/local/nginx/conf/sites-available/$name"
 
         ln -sfv "/usr/local/nginx/conf/sites-available/$name" "/usr/local/nginx/conf/sites-enabled/$name"
 
         if [ $appendhosts = 'y' ]
         then
             exesudo add_etc_host
+        fi
+    }
+}
+
+function command_vhosts_del {
+
+    function help {
+
+        echo -e "pulsion vhosts_del --name <name>"
+
+    }
+
+    function process {
+
+        set -e
+
+        if has_param --name "$@"; then
+
+            vhost="$(get_param_value --name "$@")"
+
+            if [ -e "/usr/local/nginx/conf/sites-available/$vhost" ]
+            then
+                rm "/usr/local/nginx/conf/sites-available/$vhost"
+            fi
+
+            if [ -e "/usr/local/nginx/conf/sites-enabled/$vhost" ]
+            then
+                rm "/usr/local/nginx/conf/sites-enabled/$vhost"
+            fi
+
+            if [ -e "/usr/local/nginx/logs/$vhost.access.log" ]
+            then
+                rm "/usr/local/nginx/logs/$vhost.access.log"
+            fi
+
+        else
+
+            echo -e "Missing param name"
+            help
+            exit 1
+
+        fi
+    }
+}
+
+function command_vhosts_enable {
+
+    function help {
+
+        echo -e "pulsion vhosts_enable --name <name>"
+
+    }
+
+    function process {
+
+        set -e
+
+        if has_param --name "$@"; then
+            vhost="$(get_param_value --name "$@")"
+            if [ -e "/usr/local/nginx/conf/sites-enabled/$vhost" ]
+            then
+                verbose 1 "Already enabled"
+            else
+                ln -sfv "/usr/local/nginx/conf/sites-available/$vhost" "/usr/local/nginx/conf/sites-enabled/$vhost"
+            fi
+        else
+            echo -e "Missing param name"
+            help
+            exit 1
+        fi
+    }
+}
+
+function command_vhosts_disable {
+
+    function help {
+
+        echo -e "pulsion vhosts_disable --name <name>"
+
+    }
+
+    function process {
+
+        set -e
+
+        if has_param --name "$@"; then
+            vhost="$(get_param_value --name "$@")"
+            if [ -e "/usr/local/nginx/conf/sites-enabled/$vhost" ]
+            then
+                rm "/usr/local/nginx/conf/sites-enabled/$vhost"
+            else
+                verbose 1 "Already disabled"
+            fi
+        else
+            echo -e "Missing param name"
+            help
+            exit 1
         fi
     }
 }
