@@ -1,5 +1,49 @@
 #!/bin/bash
 
+function command_php_patch_ini {
+
+    function help {
+
+        echo -e "Install nginx"
+
+    }
+
+    function php_patch_ini {
+
+        php_ini_path=`php -i | grep 'Loaded Configuration File' | awk '{print $5}'`
+
+        if [ $php_ini_path = "(none)" ] 
+        then
+            echo "No php ini loaded, making /etc/php.ini"
+            cp /etc/php.ini.default /etc/php.ini
+            php_ini_path='/etc/php.ini'
+        fi
+
+        php_ini_backup="$php_ini_path.backup"
+
+        cp $php_ini_path $php_ini_backup
+        sed 's%;date.timezone =.*%date.timezone = "Europe/Paris"%' $php_ini_backup > $php_ini_path
+
+        php_fpm_path=`php-fpm -i | grep 'fpm.config' | awk '{print $3}'`
+        if [ $php_fpm_path = "no" ]
+        then
+            echo "No php-fpm.conf loaded, making /etc/php-fpm.conf"
+            cp /etc/php-fpm.conf.default /etc/php-fpm.conf
+            php_fpm_path='/etc/php-fpm.conf'
+        fi
+
+        php_fpm_backup="$php_fpm_path.backup"
+
+        cp $php_fpm_path $php_fpm_backup
+        sed 's%;error_log.*%error_log = /usr/local/var/log/php-fpm/php-fpm.log%' $php_fpm_backup > $php_fpm_path
+    }
+
+    function process {
+
+        exesudo php_patch_ini
+    }
+
+}
 function command_install {
 
     function help {
@@ -85,7 +129,7 @@ function command_install {
 
         verbose 1 "patching php.ini timezone"
 
-        exesudo php_patch_ini
+        pulsion php_patch_ini
     }
 }
 
