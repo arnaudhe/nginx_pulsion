@@ -4,7 +4,7 @@ function command_install {
 
     function help {
 
-        echo -e "Install nginx"
+        echo -e "Install nginx !"
 
     }
 
