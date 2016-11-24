@@ -4,7 +4,7 @@ function command_php_patch_ini {
 
     function help {
 
-        echo -e "Install nginx"
+        echo -e "Install nginx."
 
     }
 
