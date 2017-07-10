@@ -1,29 +1,29 @@
 # nginx_pulsion
 Nginx management though pulsion scripts
 
-##Install
+## Install
     pulsion install
 
-##Test the setup
+## Test the setup
     pulsion doctor
 
-##Start
+## Start
     pulsion start
 
-##Stop
+## Stop
     pulsion stop
 
-##Restart
+## Restart
     pulsion restart
 
-##Update the nginx config
+## Update the nginx config
     pulsion update_config
 
-##Show last access logs
+## Show last access logs
     pulsion logs_access
 
-##Show last error logs
+## Show last error logs
     pulsion logs_error
 
-##Show last access logs on virtual host default
+## Show last access logs on virtual host default
     pulsion logs_default_access
